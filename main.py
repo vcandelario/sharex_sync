@@ -13,7 +13,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/photoslibrary.appendonly"
 ]
-FOLDER_ID = '12-_gisU2aV1-LOd0nu6_y5NmkHD-JCUr'  # Replace this
+FOLDER_ID = '12-_gisU2aV1-LOd0nu6_y5NmkHD-JCUr'  # Replace this with your actual Drive folder ID
 LOCAL_FOLDER = '/tmp/sharex_photos'
 
 def authenticate():
@@ -25,7 +25,11 @@ def authenticate():
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_console()  # for headless
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            print(f"\n🔑 Go to this URL to authorize the app:\n{auth_url}\n")
+            code = input("Paste the authorization code here: ")
+            flow.fetch_token(code=code)
+            creds = flow.credentials
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
     return creds
@@ -91,11 +95,11 @@ def process_photos():
         # Upload to Google Photos
         upload_token = get_photos_upload_url(local_path, creds)
         if create_photo(creds, upload_token):
-            print(f"Uploaded: {filename}")
+            print(f"✅ Uploaded: {filename}")
             drive_service.files().delete(fileId=file_id).execute()
             os.remove(local_path)
         else:
-            print(f"Failed to upload: {filename}")
+            print(f"❌ Failed to upload: {filename}")
 
 if __name__ == "__main__":
     process_photos()
