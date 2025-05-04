@@ -35,7 +35,7 @@ def authenticate():
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 'credentials.json', scopes,
-                redirectURI='urn:ietf:wg:oauth:2.0:oob'
+                redirect_uri='urn:ietf:wg:oauth:2.0:oob'
             )
             authURL, _ = flow.authorization_url(prompt='consent')
             print(f"\nGo to this URL to authorize the app:\n{authURL}\n")
@@ -83,7 +83,7 @@ def process_photos():
     drive_service = get_drive_service(creds)
     idInput = get_folder_id()
 
-    os.makedirs(localFolder, doesExist=True)
+    os.makedirs(localFolder, exist_ok=True)
 
     results = drive_service.files().list(
         q=f"'{idInput}' in parents and trashed = false",
