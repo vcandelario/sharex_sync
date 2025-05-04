@@ -1,6 +1,4 @@
 import os
-import io
-import mimetypes
 import requests
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
