@@ -1,6 +1,7 @@
 # Ignore OAuth credentials and tokens
 credentials.json
 token.json
+folderID.txt
 
 # Python cache files
 __pycache__/

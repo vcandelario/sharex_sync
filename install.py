@@ -17,7 +17,6 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory={workDir}
 ExecStart=/usr/bin/python3 {scriptPath}
-User={user}
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
