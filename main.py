@@ -8,28 +8,37 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-# ---- Configuration ----
-SCOPES = [
+# Configuration
+scopes = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/photoslibrary.appendonly"
 ]
-FOLDER_ID = '12-_gisU2aV1-LOd0nu6_y5NmkHD-JCUr'  # Replace this with your actual Drive folder ID
-LOCAL_FOLDER = '/tmp/sharex_photos'
+localFolder = '/tmp/sharex_photos'
+folderID = 'folderID.txt'
+
+def get_folder_id():
+    if os.path.exists(folderID):
+        with open(folderID, 'r') as f:
+            return f.read().strip()
+    idInput = input("Enter your Google Drive folder ID: ").strip()
+    with open(folderID, 'w') as f:
+        f.write(idInput)
+    return idInput
 
 def authenticate():
     creds = None
     if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        creds = Credentials.from_authorized_user_file('token.json', scopes)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES,
-                redirect_uri='urn:ietf:wg:oauth:2.0:oob'
+                'credentials.json', scopes,
+                redirectURI='urn:ietf:wg:oauth:2.0:oob'
             )
-            auth_url, _ = flow.authorization_url(prompt='consent')
-            print(f"\n🔑 Go to this URL to authorize the app:\n{auth_url}\n")
+            authURL, _ = flow.authorization_url(prompt='consent')
+            print(f"\nGo to this URL to authorize the app:\n{authURL}\n")
             code = input("Paste the authorization code here: ")
             flow.fetch_token(code=code)
             creds = flow.credentials
@@ -40,26 +49,26 @@ def authenticate():
 def get_drive_service(creds):
     return build('drive', 'v3', credentials=creds)
 
-def get_photos_upload_url(image_path, creds):
-    upload_url = 'https://photoslibrary.googleapis.com/v1/uploads'
+def get_photos_upload_url(imagePath, creds):
+    uploadURL = 'https://photoslibrary.googleapis.com/v1/uploads'
     headers = {
         'Authorization': f'Bearer {creds.token}',
         'Content-type': 'application/octet-stream',
-        'X-Goog-Upload-File-Name': os.path.basename(image_path),
+        'X-Goog-Upload-File-Name': os.path.basename(imagePath),
         'X-Goog-Upload-Protocol': 'raw'
     }
-    with open(image_path, 'rb') as img:
-        response = requests.post(upload_url, headers=headers, data=img)
+    with open(imagePath, 'rb') as img:
+        response = requests.post(uploadURL, headers=headers, data=img)
     return response.text
 
-def create_photo(creds, upload_token):
+def create_photo(creds, uploadToken):
     headers = {
         'Authorization': f'Bearer {creds.token}',
         'Content-type': 'application/json'
     }
     json_data = {
         "newMediaItems": [{
-            "simpleMediaItem": {"uploadToken": upload_token}
+            "simpleMediaItem": {"uploadToken": uploadToken}
         }]
     }
     response = requests.post(
@@ -72,11 +81,12 @@ def create_photo(creds, upload_token):
 def process_photos():
     creds = authenticate()
     drive_service = get_drive_service(creds)
+    idInput = get_folder_id()
 
-    os.makedirs(LOCAL_FOLDER, exist_ok=True)
+    os.makedirs(localFolder, doesExist=True)
 
     results = drive_service.files().list(
-        q=f"'{FOLDER_ID}' in parents and trashed = false",
+        q=f"'{idInput}' in parents and trashed = false",
         spaces='drive',
         fields="files(id, name, mimeType)"
     ).execute()
@@ -85,24 +95,24 @@ def process_photos():
     for file in files:
         file_id = file['id']
         filename = file['name']
-        local_path = os.path.join(LOCAL_FOLDER, filename)
+        localPath = os.path.join(localFolder, filename)
 
         # Download from Drive
         request = drive_service.files().get_media(fileId=file_id)
-        with open(local_path, 'wb') as f:
+        with open(localPath, 'wb') as f:
             downloader = MediaIoBaseDownload(f, request)
             done = False
             while not done:
                 _, done = downloader.next_chunk()
 
         # Upload to Google Photos
-        upload_token = get_photos_upload_url(local_path, creds)
-        if create_photo(creds, upload_token):
-            print(f"✅ Uploaded: {filename}")
+        uploadToken = get_photos_upload_url(localPath, creds)
+        if create_photo(creds, uploadToken):
+            print(f"Uploaded: {filename}")
             drive_service.files().delete(fileId=file_id).execute()
-            os.remove(local_path)
+            os.remove(localPath)
         else:
-            print(f"❌ Failed to upload: {filename}")
+            print(f"Failed to upload: {filename}")
 
 if __name__ == "__main__":
     process_photos()
