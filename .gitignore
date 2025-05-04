@@ -1,0 +1,23 @@
+# Ignore OAuth credentials and tokens
+credentials.json
+token.json
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment (if created in repo)
+venv/
+env/
+
+# Systemd config (if stored locally)
+*.service
+*.timer
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
