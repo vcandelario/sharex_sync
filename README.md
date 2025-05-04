@@ -1,175 +1,129 @@
-# 📸 ShareX → Google Photos Sync
+# 📸 ShareX to Google Photos Sync
 
-Automatically sync screenshots uploaded via [ShareX](https://getsharex.com/) to a specific Google Drive folder and upload them to Google Photos — entirely from a headless Linux server using Python and systemd.
-
----
-
-## 🚀 How It Works
-
-1. ShareX uploads screenshots to **Google Drive** (via Google Drive destination).
-2. This script:
-   - Detects images in a **specified Drive folder**
-   - Downloads them to your **Linux server**
-   - Uploads them to **Google Photos**
-   - Cleans up both **Drive** and **local disk**
-3. A `systemd` timer runs the script every 15 seconds for near real-time sync.
+Automatically sync images uploaded from ShareX (to Google Drive) into your Google Photos library using a lightweight Python script and systemd.
 
 ---
 
-## 🔧 Requirements
+## Features
+
+- Watch a Google Drive folder for new screenshots (uploaded via ShareX)
+- Download new files to a temporary folder
+- Upload them to Google Photos
+- Automatically delete them from Drive and the local temp folder
+- Run in the background using a persistent systemd timer
+
+---
+
+## Prerequisites
 
 - Python 3.8+
-- A headless Linux server (local or VPS)
-- A Google account
-- A Google Cloud project
+- A Google Cloud project with Drive & Photos API enabled
+- OAuth 2.0 "Desktop App" credentials (`credentials.json` file)
+- ShareX configured to upload to a specific Google Drive folder
 
 ---
 
-## 📁 Folder Structure
+## Setup Instructions
 
-```
-sharex_sync/
-├── main.py              # The main sync script
-├── credentials.json     # Google Cloud OAuth credentials (Desktop type)
-├── token.json           # Auto-generated after first run
-└── systemd/
-    ├── sharex_sync.service
-    └── sharex_sync.timer
-```
+### 1. Enable APIs in Google Cloud Console
 
----
-
-## 🧰 Setup Instructions
-
-### 1. Create Google Cloud Project & Credentials
-
-1. Visit [Google Cloud Console](https://console.cloud.google.com/)
-2. Enable these APIs:
-   - **Google Drive API**
-   - **Google Photos Library API**
-3. Go to **APIs & Services → Credentials**
-4. Click **“Create Credentials” → OAuth Client ID**
-5. Choose **“Desktop App”**
-6. Download the `credentials.json` and place it in your project folder
+- Visit: [Google Cloud Console](https://console.cloud.google.com/)
+- Create a project (if you don’t have one)
+- Enable:
+  - **Google Drive API**
+  - **Google Photos Library API**
+- Go to **Credentials** → **Create Credentials** → **OAuth Client ID**
+  - Application type: **Desktop App**
+- Download the resulting `credentials.json`
 
 ---
 
-### 2. Install Dependencies
+### 2. Clone the repo
 
 ```bash
-pip install --upgrade google-auth google-auth-oauthlib google-api-python-client requests
+git clone https://github.com/vcandelario/sharex_sync.git
+cd sharex_sync
 ```
+
+Place your `credentials.json` file inside the project folder.
 
 ---
 
-### 3. First-Time Authentication
+### 3. Install and Set Up the Background Service
 
-Run:
+Run the installer:
+
+```bash
+python3 install_service.py
+```
+
+This will:
+
+- Create and install a systemd `.service` and `.timer` under your user
+- Start the timer (runs every 15 seconds)
+- Launch `main.py` interactively for first-time Google auth & folder ID input
+
+---
+
+### 4. Done!
+
+Now every time you upload an image to your chosen Google Drive folder via ShareX, it will:
+
+- Be automatically uploaded to Google Photos
+- Deleted from Drive
+- Deleted from your server’s temp folder (`/tmp/sharex_photos`)
+
+---
+
+## Troubleshooting
+
+### First-time setup didn’t ask for a token or folder ID?
+
+Just run `main.py` manually once:
 
 ```bash
 python3 main.py
 ```
 
-- You'll get a link. Open it on any browser (on any device).
-- Log in and grant access.
-- Paste the code back into the terminal.
-- A `token.json` file will be created to persist credentials.
+This will trigger the Google OAuth flow and folder ID prompt.
 
 ---
 
-### 4. Configure the Script
-
-Open `main.py` and update:
-
-```python
-FOLDER_ID = 'your_google_drive_folder_id'
-```
-
-- Get the folder ID from the URL:
-  ```
-  https://drive.google.com/drive/folders/<FOLDER_ID>
-  ```
-
----
-
-## 🖥️ Automation with systemd
-
-### 1. Create Service
-
-```ini
-# /etc/systemd/system/sharex_sync.service
-
-[Unit]
-Description=Sync ShareX uploads from Google Drive to Google Photos
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-WorkingDirectory=/home/youruser/path/to/sharex_sync
-ExecStart=/usr/bin/python3 /home/youruser/path/to/sharex_sync/main.py
-User=youruser
-Environment=PYTHONUNBUFFERED=1
-
-[Install]
-WantedBy=multi-user.target
-```
-
----
-
-### 2. Create Timer
-
-```ini
-# /etc/systemd/system/sharex_sync.timer
-
-[Unit]
-Description=Run ShareX Google Sync every 15 seconds
-
-[Timer]
-OnBootSec=10sec
-OnUnitActiveSec=15sec
-Unit=sharex_sync.service
-
-[Install]
-WantedBy=timers.target
-```
-
----
-
-### 3. Enable and Start
+### Stop the service and timer
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now sharex_sync.timer
+systemctl --user stop sharex_sync.timer
+systemctl --user stop sharex_sync.service
+```
+
+To prevent it from running again:
+
+```bash
+systemctl --user disable sharex_sync.timer
 ```
 
 ---
 
-## 📋 FAQ
+## FAQ
 
-### 💡 Why not upload directly to Google Photos?
+### Why not just use ShareX’s Google Photos support?
 
-Google's new API policies no longer allow third-party tools (like ShareX) to upload directly to Google Photos. This script bridges that gap.
-
-### 🔐 Is my Google account secure?
-
-Yes. The credentials are stored locally and never leave your machine. Access tokens are securely managed by Google’s official SDK.
-
-### ⏱️ Can I change the sync interval?
-
-Yes — just edit the `sharex_sync.timer` file. 15 seconds is the shortest practical interval for near real-time behavior.
+Google restricted direct Google Photos API access. ShareX would need to verify their app and undergo a security audit which was not feasible for a volunteer project. This script sidesteps the restriction by using your own credentials and Google Drive.
 
 ---
 
-## ✅ To-Do / Future Features
+## Optional Cleanup
 
-- ✅ Retry logic for upload failures
-- ⏳ Upload to a specific Google Photos album
-- ⏳ ShareX script to automate Drive upload folder selection
-- ⏳ Telegram or email notifications
+If you ever want to reset:
+
+```bash
+rm token.json folderID.txt
+```
+
+Then rerun `main.py`.
 
 ---
 
-## 📄 License
+## License
 
-MIT License. Use freely, modify, and contribute!
+MIT License.
