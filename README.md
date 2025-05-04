@@ -54,7 +54,7 @@ Place your `credentials.json` file inside the project folder.
 Run the installer:
 
 ```bash
-python3 install_service.py
+python3 install.py
 ```
 
 This will:
