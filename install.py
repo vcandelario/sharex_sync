@@ -17,7 +17,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory={workDir}
 ExecStart=/usr/bin/python3 {scriptPath}
-user={user}
+User={user}
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
@@ -36,7 +36,14 @@ Unit={serviceName}.service
 WantedBy=timers.target
 """
 
-def install_systemd_files(systemLevel=False):
+def runSystemctl(*args, userMode):
+    cmd = ["systemctl"]
+    if userMode:
+        cmd.append("--user")
+    cmd.extend(args)
+    subprocess.run(cmd)
+
+def installSystemdFiles(systemLevel=False):
     if systemLevel:
         basePath = Path("/etc/systemd/system")
     else:
@@ -49,13 +56,16 @@ def install_systemd_files(systemLevel=False):
     servicePath.write_text(serviceContent)
     timerPath.write_text(timerContent)
 
-    subprocess.run(["systemctl", "--user" if not systemLevel else "", "daemon-reload"])
-    subprocess.run(["systemctl", "--user" if not systemLevel else "", "enable", "--now", f"{serviceName}.timer"])
+    runSystemctl("daemon-reload", userMode=not systemLevel)
+    runSystemctl("enable", "--now", f"{serviceName}.timer", userMode=not systemLevel)
 
-    print(f"Successfully Installed and started {serviceName}.timer")
+    print(f"Successfully installed and started {serviceName}.timer")
 
 if __name__ == "__main__":
     try:
-        install_systemd_files()
+        installSystemdFiles()
     except PermissionError:
         print("Try running with sudo to install system-level services.")
+
+    print("\nStarting Install Process\n")
+    subprocess.run(["python3", "main.py"])
